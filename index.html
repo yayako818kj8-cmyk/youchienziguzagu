@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>横スクロールマンガ</title>
+
+<style>
+  /* ===== 基本 ===== */
+  body {
+    margin: 0;
+    overflow: hidden; /* bodyはスクロールさせない */
+    background: #000;
+  }
+
+  /* ===== 読了率バー ===== */
+  #progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 6px;
+    width: 100%;
+    background: rgba(255,255,255,0.2);
+    z-index: 1000;
+  }
+
+  #progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #00ffcc;
+    transition: width 0.1s;
+  }
+
+  /* ===== マンガコンテナ ===== */
+  #container {
+    display: flex;
+    flex-direction: row-reverse; /* 右 → 左 */
+    height: 100vh;
+
+    overflow-x: scroll;
+    overflow-y: hidden;
+
+    scroll-behavior: smooth;
+  }
+
+  /* ===== 1コマ ===== */
+  .page {
+    flex: 0 0 100vw; /* 1コマ＝画面幅 */
+    height: 100vh;
+  }
+
+  .page img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* ===== アンケートページ ===== */
+  #survey {
+    flex: 0 0 100vw;
+    height: 100vh;
+    background: #fff;
+    color: #000;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #survey h1 {
+    margin-bottom: 0.5rem;
+  }
+
+  iframe {
+    width: 90%;
+    height: 70%;
+    border: none;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- 読了率バー -->
+<div id="progress">
+  <div id="progress-bar"></div>
+</div>
+
+<!-- マンガ本体 -->
+<div id="container"></div>
+
+<script>
+const container = document.getElementById("container");
+const progressBar = document.getElementById("progress-bar");
+
+/* ===== マンガ画像を読み込む ===== */
+fetch("pages.json")
+  .then(res => res.json())
+  .then(data => {
+
+    data.forEach(file => {
+      const page = document.createElement("div");
+      page.className = "page";
+
+      const img = document.createElement("img");
+      img.src = "pages/" + file;
+
+      page.appendChild(img);
+      container.appendChild(page);
+    });
+
+    /* ===== アンケートページ ===== */
+    const survey = document.createElement("div");
+    survey.id = "survey";
+    survey.innerHTML = `
+      <h1>アンケートにご協力ください</h1>
+      <p>ご意見は今後の研究に活用します。</p>
+      <iframe src="https://docs.google.com/forms/d/1e4g9vLe-CaiT-30MiuNK_9ZcCsplhU55qEbK2p2E_zo/viewform"></iframe>
+    `;
+    container.appendChild(survey);
+  });
+
+/* ===== 読了率計算（container基準） ===== */
+container.addEventListener("scroll", () => {
+  const maxScroll = container.scrollWidth - container.clientWidth;
+  const progress = 1 - container.scrollLeft / maxScroll;
+
+  progressBar.style.width =
+    Math.max(0, Math.min(progress * 100, 100)) + "%";
+});
+</script>
+
+</body>
+</html>
