@@ -1,135 +1,1176 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>横スクロールマンガ</title>
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1,
+               user-scalable=no, viewport-fit=cover">
+
+<title>幼稚園防衛組｜読書実験</title>
 
 <style>
-  /* ===== 基本 ===== */
-  body {
-    margin: 0;
-    overflow: hidden; /* bodyはスクロールさせない */
-    background: #000;
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* ===== 読了率バー ===== */
+  [hidden] {
+    display: none !important;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #fff;
+    font-family: system-ui, "Yu Gothic", sans-serif;
+  }
+
+  /* 進捗バー */
   #progress {
     position: fixed;
     top: 0;
     left: 0;
+    right: 0;
     height: 6px;
-    width: 100%;
-    background: rgba(255,255,255,0.2);
-    z-index: 1000;
+    z-index: 8;
+    background: #e8eeee;
   }
 
   #progress-bar {
+    width: 100%;
     height: 100%;
-    width: 0%;
-    background: #00ffcc;
-    transition: width 0.1s;
+    background: #00ccaa;
+    transform: scaleX(0);
+    transform-origin: right center;
   }
 
-  /* ===== マンガコンテナ ===== */
-  #container {
-    display: flex;
-    flex-direction: row-reverse; /* 右 → 左 */
-    height: 100vh;
-
-    overflow-x: scroll;
-    overflow-y: hidden;
-
-    scroll-behavior: smooth;
+  /* 漫画表示領域 */
+  #viewer {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #fff;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
-  /* ===== 1コマ ===== */
+  /* 2段・半コマずらしのジグザグ配置 */
+  #strip {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    will-change: transform;
+  }
+
   .page {
-    flex: 0 0 100vw; /* 1コマ＝画面幅 */
-    height: 100vh;
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #fff;
   }
 
   .page img {
+    display: block;
     width: 100%;
     height: 100%;
     object-fit: contain;
-    display: block;
+    pointer-events: none;
   }
 
-  /* ===== アンケートページ ===== */
-  #survey {
-    flex: 0 0 100vw;
-    height: 100vh;
-    background: #fff;
-    color: #000;
-
+  /* 開始・終了画面 */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    overflow-y: auto;
+    background: #f4f6f8;
+    color: #18222c;
+    padding:
+      max(24px, env(safe-area-inset-top))
+      24px
+      max(24px, env(safe-area-inset-bottom));
     display: flex;
-    flex-direction: column;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
   }
 
-  #survey h1 {
-    margin-bottom: 0.5rem;
+  .panel {
+    width: 100%;
+    max-width: 440px;
+    margin: auto;
   }
 
-  iframe {
-    width: 90%;
-    height: 70%;
-    border: none;
+  h1 {
+    font-size: 25px;
+    line-height: 1.4;
+    margin: 0 0 16px;
+  }
+
+  p, li {
+    line-height: 1.8;
+  }
+
+  .muted {
+    color: #5b6874;
+    font-size: 13px;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    min-height: 52px;
+    margin-top: 14px;
+    padding: 12px 16px;
+    border: 1px solid #1f5e8c;
+    border-radius: 10px;
+    background: #1f5e8c;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn.secondary {
+    background: #fff;
+    color: #18222c;
+    border-color: #cbd2d9;
+  }
+
+  #endBtn {
+    position: fixed;
+    z-index: 6;
+    left: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(260px, calc(100% - 48px));
+    box-shadow: 0 2px 12px rgba(0,0,0,.18);
+  }
+
+  #error {
+    position: fixed;
+    z-index: 20;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    color: #b00020;
+    background: #fff;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  .stats dt {
+    color: #5b6874;
+    font-size: 13px;
+  }
+
+  .stats dd {
+    margin: 4px 0 0;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  #logText {
+    width: 100%;
+    height: 130px;
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid #cbd2d9;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 11px;
   }
 </style>
 </head>
 
 <body>
 
-<!-- 読了率バー -->
 <div id="progress">
   <div id="progress-bar"></div>
 </div>
 
-<!-- マンガ本体 -->
-<div id="container"></div>
+<div id="viewer" hidden>
+  <div id="strip"></div>
+</div>
 
-<script>
-const container = document.getElementById("container");
-const progressBar = document.getElementById("progress-bar");
+<button type="button" class="btn" id="endBtn" hidden>
+  読み終わった
+</button>
 
-/* ===== マンガ画像を読み込む ===== */
-fetch("pages.json")
-  .then(res => res.json())
-  .then(data => {
+<!-- 開始画面 -->
+<div class="overlay" id="intro">
+  <div class="panel">
+    <h1>漫画の読書実験</h1>
 
-    data.forEach(file => {
-      const page = document.createElement("div");
-      page.className = "page";
+    <p>これから漫画を読んでいただきます。</p>
 
-      const img = document.createElement("img");
-      img.src = "pages/" + file;
+    <ol>
+      <li>スマートフォンを縦向きに持ってください。</li>
+      <li>画面を右方向へスワイプすると、右上→右下→中央上→中央下の順に読み進められます。</li>
+      <li>最後まで読んだら「読み終わった」を押してください。</li>
+    </ol>
 
-      page.appendChild(img);
-      container.appendChild(page);
+    <p class="muted" id="condition"></p>
+    <p class="muted" id="loadStatus">漫画画像を読み込み中...</p>
+    <p class="muted" id="loadError"></p>
+
+    <button type="button" class="btn" id="startBtn" disabled>
+      読み始める
+    </button>
+  </div>
+</div>
+
+<!-- 終了画面 -->
+<div class="overlay" id="done" hidden>
+  <div class="panel">
+    <h1>おつかれさまでした</h1>
+
+    <p>読書実験が終了しました。</p>
+
+    <dl class="stats">
+      <div>
+        <dt>読書時間</dt>
+        <dd id="d-time">0:00</dd>
+      </div>
+
+      <div>
+        <dt>操作回数</dt>
+        <dd id="d-ops">0</dd>
+      </div>
+    </dl>
+
+    <p class="muted" id="uploadStatus">
+      Firebase接続準備中...
+    </p>
+
+    <button type="button" class="btn" id="saveBtn">
+      記録をCSVで保存
+    </button>
+
+    <button type="button" class="btn secondary" id="copyBtn">
+      記録をコピー
+    </button>
+
+    <p class="muted" id="copyMsg"></p>
+
+    <textarea id="logText" readonly
+              aria-label="実験記録"></textarea>
+  </div>
+</div>
+
+<div id="error"></div>
+
+<script type="module">
+
+/* Firebase SDK */
+import { initializeApp } from
+  "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+
+import {
+  getAuth,
+  signInAnonymously
+} from
+  "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  serverTimestamp
+} from
+  "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+
+/* メイン処理 */
+(() => {
+
+  const $ = id => document.getElementById(id);
+
+  const viewer = $("viewer");
+  const strip = $("strip");
+  const progressBar = $("progress-bar");
+  const errorBox = $("error");
+
+
+  /* Firebase設定 */
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDD-p9Ds4p2NVQYEJHBzcspjrUKgipaUyc",
+    authDomain: "manga-reading-experiment.firebaseapp.com",
+    projectId: "manga-reading-experiment",
+    storageBucket: "manga-reading-experiment.firebasestorage.app",
+    messagingSenderId: "760642752854",
+    appId: "1:760642752854:web:f64900517baf3af0d006f7",
+    measurementId: "G-5VC4R6RYCV"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+
+  /* 認証情報 */
+
+  let authReady = false;
+  let firebaseUid = null;
+
+
+  /* 漫画画像の保存先 */
+
+  const imageFolder = "./YouchienBoueigumi/";
+
+
+  /* URL設定 */
+
+  const params = new URLSearchParams(location.search);
+
+  const config = {
+    id: (params.get("id") || "unknown")
+      .replace(/[^\w.-]/g, "_")
+      .slice(0, 40),
+
+    mode: params.get("mode") === "auto"
+      ? "auto"
+      : "manual",
+
+    speed: Math.max(
+      0.02,
+      Math.min(2, Number(params.get("speed")) || 0.2)
+    )
+  };
+
+  $("condition").textContent =
+    "参加者ID：" + config.id +
+    " ／ 条件：" +
+    (config.mode === "auto"
+      ? "自動送り"
+      : "手動スクロール");
+
+
+  /* 読書データ */
+
+  let pages = [];
+
+  let position = 0;
+  let maxPosition = 0;
+
+  let startedAt = 0;
+  let endedAt = 0;
+
+  let lastFrame = 0;
+  let animationId = null;
+
+  let active = false;
+  let dragging = false;
+  let pointerId = null;
+
+  let startX = 0;
+  let startPosition = 0;
+  let lastX = 0;
+
+  let operationCount = 0;
+
+  let operations = [];
+  let movementLog = [];
+
+  let lastLoggedPosition = -1;
+  let lastMovementLogAt = -1;
+
+  let loaded = false;
+  let uploadStarted = false;
+
+
+  /* 共通関数 */
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function updateStartButton() {
+    $("startBtn").disabled = !(loaded && authReady);
+  }
+
+
+  /* Firebase匿名認証 */
+
+  async function initializeAuth() {
+
+    try {
+
+      const credential = await signInAnonymously(auth);
+
+      firebaseUid = credential.user.uid;
+      authReady = true;
+
+      $("uploadStatus").textContent =
+        "Firebaseに接続しました。";
+
+      updateStartButton();
+
+    } catch (error) {
+
+      console.error("Firebase認証エラー:", error);
+
+      $("loadError").textContent =
+        "Firebase認証エラー：" + error.message;
+
+      $("loadStatus").textContent =
+        "Firebaseに接続できませんでした。";
+
+      $("uploadStatus").textContent =
+        "Firebase認証に失敗しました。";
+    }
+  }
+
+
+  /* 画面描画：右上→右下→中央上→中央下…の順に移動 */
+
+  let panelWidth = 0;
+  let panelHeight = 0;
+  let columnStep = 0;
+  let verticalStep = 0;
+  let upperTop = 0;
+  let lowerTop = 0;
+
+  function render() {
+
+    const pairIndex = Math.floor(position / 2);
+    const withinPair = position - pairIndex * 2;
+
+    let horizontalMove;
+    let verticalMove;
+
+    if (withinPair <= 1) {
+
+      // 上段から同じ列の下段へ
+      horizontalMove = pairIndex * columnStep;
+      verticalMove = withinPair * verticalStep;
+
+    } else {
+
+      // 下段から、ひとつ左の列の上段へ
+      const t = withinPair - 1;
+
+      horizontalMove = (pairIndex + t) * columnStep;
+      verticalMove = (1 - t) * verticalStep;
+
+    }
+
+    strip.style.transform =
+      `translate3d(${horizontalMove}px, ${-verticalMove}px, 0)`;
+
+    progressBar.style.transform =
+      `scaleX(${maxPosition > 0
+        ? position / maxPosition
+        : 1})`;
+
+    /* 読書位置の記録 */
+
+    const now = performance.now();
+
+    if (
+      active &&
+      position !== lastLoggedPosition &&
+      (lastMovementLogAt < 0 ||
+       now - lastMovementLogAt >= 250)
+    ) {
+
+      movementLog.push({
+        time: Math.round(now - startedAt),
+        position: Number(position.toFixed(3))
+      });
+
+      lastLoggedPosition = position;
+      lastMovementLogAt = now;
+
+    }
+
+    /* 終了ボタン */
+
+    $("endBtn").hidden =
+      !(position >= maxPosition && active);
+
+  }
+
+
+  function setPosition(value) {
+
+    position = clamp(value, 0, maxPosition);
+
+    render();
+
+  }
+
+
+  /* 画面サイズ調整：各コマを2段に交互配置 */
+
+  function resize() {
+
+    const width =
+      viewer.clientWidth || window.innerWidth;
+
+    const height =
+      viewer.clientHeight || window.innerHeight;
+
+    // 1コマの表示枠
+    panelWidth = width * 0.48;
+    panelHeight = height * 0.43;
+
+    // コマ同士の余白
+    const horizontalGap = width * 0.04;
+    const verticalGap = height * 0.04;
+
+    columnStep = panelWidth + horizontalGap;
+    verticalStep = panelHeight + verticalGap;
+
+    // 上段と下段を画面中央に配置
+    const totalHeight =
+      panelHeight * 2 + verticalGap;
+
+    upperTop =
+      Math.max(0, (height - totalHeight) / 2);
+
+    lowerTop =
+      upperTop + verticalStep;
+
+    maxPosition = Math.max(0, pages.length - 1);
+
+    const columnCount = Math.ceil(pages.length / 2);
+
+    strip.style.width =
+      (panelWidth +
+       Math.max(0, columnCount - 1) * columnStep) + "px";
+
+    strip.style.height = height + "px";
+
+    // 最初のコマを画面中央に置く
+    strip.style.right =
+      `calc(50% - ${panelWidth / 2}px)`;
+
+    strip.style.left = "auto";
+
+
+    pages.forEach((page, index) => {
+
+      // 2枚ごとに同じ列へ配置
+      const column = Math.floor(index / 2);
+
+      // 偶数番目は上段、奇数番目は下段
+      const isUpper = index % 2 === 0;
+
+      page.style.width = panelWidth + "px";
+      page.style.height = panelHeight + "px";
+
+      page.style.right =
+        (column * columnStep) + "px";
+
+      page.style.left = "auto";
+
+      page.style.top =
+        (isUpper ? upperTop : lowerTop) + "px";
+
     });
 
-    /* ===== アンケートページ ===== */
-    const survey = document.createElement("div");
-    survey.id = "survey";
-    survey.innerHTML = `
-      <h1>アンケートにご協力ください</h1>
-      <p>ご意見は今後の研究に活用します。</p>
-      <iframe src="https://docs.google.com/forms/d/1e4g9vLe-CaiT-30MiuNK_9ZcCsplhU55qEbK2p2E_zo/viewform"></iframe>
-    `;
-    container.appendChild(survey);
+    render();
+
+  }
+
+
+  /* CSV作成 */
+
+  function csvEscape(value) {
+
+    const str = String(value ?? "");
+
+    return '"' + str.replace(/"/g, '""') + '"';
+
+  }
+
+
+  function makeCSV() {
+
+    const rows = [
+      [
+        "record_type",
+        "participant_id",
+        "mode",
+        "time_ms",
+        "position",
+        "operation"
+      ]
+    ];
+
+    rows.push([
+      "summary",
+      config.id,
+      config.mode,
+      Math.round(endedAt - startedAt),
+      position,
+      operationCount
+    ]);
+
+    operations.forEach(op => {
+
+      rows.push([
+        "operation",
+        config.id,
+        config.mode,
+        op.time,
+        op.position,
+        op.type
+      ]);
+
+    });
+
+    movementLog.forEach(item => {
+
+      rows.push([
+        "movement",
+        config.id,
+        config.mode,
+        item.time,
+        item.position,
+        ""
+      ]);
+
+    });
+
+    return "\uFEFF" +
+      rows.map(row =>
+        row.map(csvEscape).join(",")
+      ).join("\r\n");
+
+  }
+
+
+  /* Firestore自動保存 */
+
+  async function uploadData() {
+
+    if (uploadStarted) return;
+
+    uploadStarted = true;
+
+    $("uploadStatus").textContent =
+      "実験データをFirebaseに送信しています...";
+
+    const record = {
+
+      uid: firebaseUid,
+
+      participantId: config.id,
+
+      mode: config.mode,
+
+      autoSpeed:
+        config.mode === "auto"
+          ? config.speed
+          : null,
+
+      durationMs:
+        Math.round(endedAt - startedAt),
+
+      operationCount: operationCount,
+
+      finalPosition:
+        Number(position.toFixed(3)),
+
+      totalPages: pages.length,
+
+      layout: "two-row-staggered-zigzag",
+
+      panelWidthRatio: 0.48,
+
+      operations: operations,
+
+      movementLog: movementLog,
+
+      completedAt: serverTimestamp()
+
+    };
+
+
+    try {
+
+      const docRef = await addDoc(
+        collection(db, "reading_sessions"),
+        record
+      );
+
+      $("uploadStatus").textContent =
+        "Firebaseへの保存が完了しました。";
+
+      console.log(
+        "保存成功。ドキュメントID:",
+        docRef.id
+      );
+
+    } catch (error) {
+
+      console.error("Firebase保存エラー:", error);
+
+      $("uploadStatus").textContent =
+        "自動保存に失敗しました。CSVを保存してください。";
+
+      $("copyMsg").textContent =
+        "エラー：" + error.message;
+
+      uploadStarted = false;
+
+    }
+
+  }
+
+
+  /* 漫画画像読み込み */
+
+  async function loadImages() {
+
+    try {
+
+      const response = await fetch("./youchien.txt");
+
+      if (!response.ok) {
+
+        throw new Error(
+          "youchien.txt の読み込みに失敗しました (HTTP " +
+          response.status + ")"
+        );
+
+      }
+
+      const files = await response.json();
+
+      if (!Array.isArray(files) || files.length === 0) {
+
+        throw new Error(
+          "youchien.txt に画像ファイル名がありません。"
+        );
+
+      }
+
+
+      const results = await Promise.all(
+
+        files.map(file =>
+
+          new Promise(resolve => {
+
+            const img = new Image();
+
+            img.onload = () =>
+              resolve({ file, img, ok: true });
+
+            img.onerror = () =>
+              resolve({ file, img, ok: false });
+
+            img.src = imageFolder + file;
+
+          })
+
+        )
+
+      );
+
+
+      const failed =
+        results.filter(item => !item.ok);
+
+      if (failed.length) {
+
+        throw new Error(
+          "読み込めない画像があります：\n" +
+          failed.map(item => item.file).join("\n")
+        );
+
+      }
+
+
+      results.forEach(item => {
+
+        const page = document.createElement("section");
+
+        page.className = "page";
+
+        item.img.alt = item.file;
+
+        page.appendChild(item.img);
+
+        strip.appendChild(page);
+
+        pages.push(page);
+
+      });
+
+
+      loaded = true;
+
+      $("loadStatus").textContent =
+        "画像 " + pages.length + " 枚を読み込みました。";
+
+      updateStartButton();
+
+    } catch (error) {
+
+      $("loadStatus").textContent =
+        "画像を読み込めませんでした。";
+
+      $("loadError").textContent = error.message;
+
+      errorBox.textContent = error.message;
+
+      console.error(error);
+
+    }
+
+  }
+
+
+  /* 読書開始 */
+
+  function startReading() {
+
+    if (!loaded || !authReady || active) return;
+
+    active = true;
+
+    uploadStarted = false;
+
+    position = 0;
+
+    operationCount = 0;
+
+    operations = [];
+
+    movementLog = [];
+
+    lastLoggedPosition = -1;
+
+    lastMovementLogAt = -1;
+
+    startedAt = performance.now();
+
+    $("intro").hidden = true;
+
+    $("done").hidden = true;
+
+    viewer.hidden = false;
+
+    $("endBtn").hidden = true;
+
+    errorBox.textContent = "";
+
+    resize();
+
+    setPosition(0);
+
+
+    /* 自動送り */
+
+    if (config.mode === "auto") {
+
+      lastFrame = 0;
+
+      animationId =
+        requestAnimationFrame(autoAdvance);
+
+    }
+
+  }
+
+
+  /* 自動送り処理 */
+
+  function autoAdvance(timestamp) {
+
+    if (!active || config.mode !== "auto") return;
+
+    if (lastFrame) {
+
+      const delta =
+        Math.min(timestamp - lastFrame, 100);
+
+      setPosition(
+        position + delta / 1000 * config.speed
+      );
+
+    }
+
+    lastFrame = timestamp;
+
+    if (position < maxPosition) {
+
+      animationId =
+        requestAnimationFrame(autoAdvance);
+
+    }
+
+  }
+
+
+  /* 読書終了 */
+
+  function finishReading() {
+
+    if (!active) return;
+
+    active = false;
+
+    endedAt = performance.now();
+
+
+    /* 最終位置を記録 */
+
+    movementLog.push({
+
+      time: Math.round(endedAt - startedAt),
+
+      position: Number(position.toFixed(3))
+
+    });
+
+
+    if (animationId !== null) {
+
+      cancelAnimationFrame(animationId);
+
+      animationId = null;
+
+    }
+
+
+    $("endBtn").hidden = true;
+
+    viewer.hidden = true;
+
+    $("done").hidden = false;
+
+
+    const seconds =
+      Math.floor((endedAt - startedAt) / 1000);
+
+    const minutes =
+      Math.floor(seconds / 60);
+
+    const remainder =
+      seconds % 60;
+
+
+    $("d-time").textContent =
+      minutes + ":" +
+      String(remainder).padStart(2, "0");
+
+    $("d-ops").textContent = operationCount;
+
+    $("logText").value = makeCSV();
+
+
+    /* Firebaseへ自動送信 */
+
+    uploadData();
+
+  }
+
+
+  /* 手動スクロール */
+
+  viewer.addEventListener("pointerdown", event => {
+
+    if (!active || config.mode !== "manual") return;
+
+    if (
+      event.pointerType === "mouse" &&
+      event.button !== 0
+    ) return;
+
+    dragging = true;
+
+    pointerId = event.pointerId;
+
+    startX = event.clientX;
+
+    lastX = event.clientX;
+
+    startPosition = position;
+
+    viewer.setPointerCapture(event.pointerId);
+
   });
 
-/* ===== 読了率計算（container基準） ===== */
-container.addEventListener("scroll", () => {
-  const maxScroll = container.scrollWidth - container.clientWidth;
-  const progress = 1 - container.scrollLeft / maxScroll;
 
-  progressBar.style.width =
-    Math.max(0, Math.min(progress * 100, 100)) + "%";
-});
+  viewer.addEventListener("pointermove", event => {
+
+    if (!dragging || event.pointerId !== pointerId) return;
+
+    const deltaX = event.clientX - lastX;
+
+    const swipeStep =
+      columnStep ||
+      (viewer.clientWidth || window.innerWidth) * 0.52;
+
+    setPosition(
+      startPosition +
+      (event.clientX - startX) / swipeStep
+    );
+
+    if (Math.abs(deltaX) > 2) {
+
+      lastX = event.clientX;
+
+    }
+
+  });
+
+
+  function stopDragging(event) {
+
+    if (!dragging) return;
+
+    if (event && event.pointerId !== pointerId) return;
+
+    dragging = false;
+
+    const distance =
+      Math.abs(position - startPosition);
+
+    if (distance > 0.005) {
+
+      operationCount++;
+
+      operations.push({
+
+        time: Math.round(
+          performance.now() - startedAt
+        ),
+
+        position: Number(position.toFixed(3)),
+
+        type: "swipe"
+
+      });
+
+    }
+
+    pointerId = null;
+
+  }
+
+
+  viewer.addEventListener("pointerup", stopDragging);
+
+  viewer.addEventListener("pointercancel", stopDragging);
+
+  viewer.addEventListener(
+    "lostpointercapture",
+    stopDragging
+  );
+
+
+  /* ボタン */
+
+  $("startBtn").addEventListener(
+    "click",
+    startReading
+  );
+
+  $("endBtn").addEventListener(
+    "click",
+    finishReading
+  );
+
+
+  /* CSV保存 */
+
+  $("saveBtn").addEventListener("click", () => {
+
+    const blob = new Blob(
+      [makeCSV()],
+      { type: "text/csv;charset=utf-8;" }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+      "reading_" +
+      config.id + "_" +
+      config.mode + ".csv";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    setTimeout(
+      () => URL.revokeObjectURL(url),
+      1000
+    );
+
+  });
+
+
+  /* CSVコピー */
+
+  $("copyBtn").addEventListener(
+    "click",
+    async () => {
+
+      try {
+
+        await navigator.clipboard.writeText(makeCSV());
+
+        $("copyMsg").textContent =
+          "記録をコピーしました。";
+
+      } catch {
+
+        $("logText").focus();
+
+        $("logText").select();
+
+        $("copyMsg").textContent =
+          "自動コピーできません。テキストを選択してコピーしてください。";
+
+      }
+
+    }
+  );
+
+
+  /* 画面サイズ変更 */
+
+  window.addEventListener("resize", () => {
+
+    if (loaded) resize();
+
+  });
+
+
+  /* 初期化 */
+
+  initializeAuth();
+
+  loadImages();
+
+})();
+
 </script>
 
 </body>
